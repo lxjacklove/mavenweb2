@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:mvc="http://www.springframework.org/schema/mvc"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+       http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/aop
+       http://www.springframework.org/schema/aop/spring-aop.xsd
+       http://www.springframework.org/schema/context
+       http://www.springframework.org/schema/context/spring-context.xsd
+       http://www.springframework.org/schema/tx
+       http://www.springframework.org/schema/tx/spring-tx.xsd
+       http://www.springframework.org/schema/mvc
+       http://www.springframework.org/schema/mvc/spring-mvc.xsd">
+    <!--1.配置DBCP的数据源-->
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="url" value="jdbc:mysql:///sshmaven_house?characterEncoding=utf-8"></property>
+        <property name="driverClassName" value="org.gjt.mm.mysql.Driver"></property>
+        <property name="username" value="root"></property>
+        <property name="password" value="123456"></property>
+    </bean>
+    <!--2.创建SqlSessionFactory,由spring提供-->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <!--思考mybatis的核心配置部分：数据源，注册实体-->
+        <property name="dataSource" ref="dataSource"></property>
+        <property name="mapperLocations" value="classpath:com/me/mapper/*Mapper.xml"></property>
+    </bean>
+    <!--3.创建DAO对象，注入SqlSessionFactory-->
+    <bean id="userDAO" class="com.me.dao.UserDaoImpl">
+        <property name="sqlSessionFactory" ref="sqlSessionFactory"></property>
+    </bean>
+
+    <!--4.创建服务层对象，注入DAO目标对象-->
+    <bean id="userService" class="com.me.service.UserServiceImpl">
+        <property name="userDao" ref="userDAO"></property>
+    </bean>
+    <!--5.创建事务管理通知类对象-->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <!--注入数据源-->
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+    <!--6.定义事务通知切面，让事务应用到具体的方法-->
+    <tx:advice id="txAdvice" transaction-manager="transactionManager">
+        <tx:attributes>
+            <tx:method name="add*" propagation="REQUIRED"/>
+            <tx:method name="get*" read-only="true"></tx:method>
+            <tx:method name="*" propagation="REQUIRED"/>
+        </tx:attributes>
+    </tx:advice>
+
+    <!--7.切入点表达式-->
+    <aop:config>
+        <aop:pointcut id="myPoint" expression="execution(* com.me.service.*.*(..))"></aop:pointcut>
+        <aop:advisor advice-ref="txAdvice" pointcut-ref="myPoint"></aop:advisor>
+    </aop:config>
+
+    <!--整合表现层配置-->
+    <!--8.注解的处理器映射器和适配器-->
+    <mvc:annotation-driven></mvc:annotation-driven>
+
+    <!--9.视图解析器：逻辑视图-->
+    <bean class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+        <!--前缀-->
+        <property name="prefix" value="/"></property>
+        <!--后缀-->
+        <property name="suffix" value=".jsp"></property>
+    </bean>
+    <!--10.扫描 Action-->
+    <context:component-scan base-package="com.me.action"></context:component-scan>
+</beans>
